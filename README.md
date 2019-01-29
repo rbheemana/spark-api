@@ -1,4 +1,4 @@
-# Spark SFTP Connector Library
+# Spark API-EndPoint Connector Library
 
 A library for constructing dataframes by downloading files from api end point
 
