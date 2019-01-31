@@ -1,12 +1,12 @@
-name := "spark-sftp"
+name := "spark-api"
 
-organization := "com.springml"
+organization := "com.apache"
 
 scalaVersion := "2.11.8"
 
 sparkVersion := "2.1.0"
 
-spName := "springml/spark-sftp"
+spName := "springml/spark-api"
 
 version := "1.1.3"
 
@@ -14,7 +14,9 @@ version := "1.1.3"
 libraryDependencies ++= Seq(
   "com.springml" % "sftp.client" % "1.0.3",
   "org.mockito" % "mockito-core" % "2.0.31-beta",
-  "com.databricks" % "spark-xml_2.11" % "0.4.1"
+  "com.databricks" % "spark-xml_2.11" % "0.4.1",
+  //module to consume REST end points.
+  "org.scalaj" %% "scalaj-http" % "2.4.1"
 )
 
 // used spark components
