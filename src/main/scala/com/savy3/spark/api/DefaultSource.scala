@@ -18,13 +18,14 @@ package com.savy3.spark.api
 import java.io.File
 import java.util.UUID
 
-
 import org.apache.commons.io.FilenameUtils
 import org.apache.hadoop.fs.Path
 import org.apache.log4j.Logger
 import org.apache.spark.sql.sources.{BaseRelation, CreatableRelationProvider, RelationProvider, SchemaRelationProvider}
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, SQLContext, SaveMode}
+import scalaj.http.HttpOptions.HttpOption
+import scalaj.http.{Http, HttpRequest}
 
 /**
  * Datasource to construct dataframe from a sftp url
@@ -87,11 +88,7 @@ class DefaultSource extends RelationProvider with SchemaRelationProvider with Cr
     }
   }
 
-  override def createRelation(
-      sqlContext: SQLContext,
-      mode: SaveMode,
-      parameters: Map[String, String],
-      data: DataFrame): BaseRelation = {
+  override def createRelation(sqlContext: SQLContext, mode: SaveMode, parameters: Map[String, String], data: DataFrame): BaseRelation = {
 
     val username = parameters.get("username")
     val password = parameters.get("password")
@@ -138,9 +135,7 @@ class DefaultSource extends RelationProvider with SchemaRelationProvider with Cr
       return fileLocation
     }
   }
-
-  private def copyFromHdfs(sqlContext: SQLContext, hdfsTemp : String,
-                           fileLocation : String): String  = {
+  private def copyFromHdfs(sqlContext: SQLContext, hdfsTemp : String, fileLocation : String): String  = {
     val hadoopConf = sqlContext.sparkContext.hadoopConfiguration
     val hdfsPath = new Path(hdfsTemp)
     val fs = hdfsPath.getFileSystem(hadoopConf)
@@ -185,6 +180,38 @@ class DefaultSource extends RelationProvider with SchemaRelationProvider with Cr
         getValue(password), host, sftpPort)
     }
   }
+
+  /**
+    * Prepare Http client with URL and headers
+    * @param requestHeadersMap
+    * @return
+    */
+  private def getRESTClientWithHeaders( restEndPoint: String, requestHeadersMap: Option[Map[String, String]]): HttpRequest = {
+    var httpRequest: HttpRequest = null
+
+    if(!restEndPoint.isEmpty){
+      httpRequest  = Http(restEndPoint)
+      if(requestHeadersMap.isDefined){
+        //.headers("Content-Type" -> "application/json", "key1" -> "val1")
+        httpRequest = httpRequest.headers(requestHeadersMap.get)
+      }
+     }
+    httpRequest
+  }
+
+  /**
+    * Prepare HttpRequest with body detials
+    * @param httpRequest
+    * @param requestBody
+    * @return
+    */
+  private def putRequestBody( httpRequest: HttpRequest, requestBody: String ): HttpRequest = {
+    if(httpRequest.isInstanceOf[HttpRequest] && !requestBody.isEmpty){
+      return httpRequest.postData(requestBody)
+    }
+    return httpRequest
+  }
+
 
   private def createReturnRelation(data: DataFrame): BaseRelation = {
     createReturnRelation(data.sqlContext, data.schema)

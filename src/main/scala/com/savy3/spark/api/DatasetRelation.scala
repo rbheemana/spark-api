@@ -11,12 +11,12 @@ import org.apache.spark.sql.types.StructType
  * Abstract relation class for reading data from file
  */
 case class DatasetRelation(
-    fileLocation: String,
+    fileLocation: String,  //Downloaded file path, can be HDFS/S3
     fileType: String,
     inferSchema: String,
     header: String,
     delimiter: String,
-    rowTag: String,
+    rowTag: String,   //Used for reading XML content
     customSchema: StructType,
     sqlContext: SQLContext) extends BaseRelation with TableScan {
 
