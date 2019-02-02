@@ -28,7 +28,7 @@ import scalaj.http.HttpOptions.HttpOption
 import scalaj.http.{Http, HttpRequest}
 
 /**
- * Datasource to construct dataframe from a sftp url
+ * Datasource to construct dataframe from a REST url
  */
 class DefaultSource extends RelationProvider with SchemaRelationProvider with CreatableRelationProvider  {
   @transient val logger = Logger.getLogger(classOf[DefaultSource])
@@ -121,32 +121,8 @@ class DefaultSource extends RelationProvider with SchemaRelationProvider with Cr
     upload(tempFile, path, sftpClient)
     return createReturnRelation(data)
   }
-  private def copyToHdfs(sqlContext: SQLContext, fileLocation : String,
-                         hdfsTemp : String): String  = {
-    val hadoopConf = sqlContext.sparkContext.hadoopConfiguration
-    val hdfsPath = new Path(fileLocation)
-    val fs = hdfsPath.getFileSystem(hadoopConf)
-    if ("hdfs".equalsIgnoreCase(fs.getScheme)) {
-      fs.copyFromLocalFile(new Path(fileLocation), new Path(hdfsTemp))
-      val filePath = hdfsTemp + "/" + hdfsPath.getName
-      fs.deleteOnExit(new Path(filePath))
-      return filePath
-    } else {
-      return fileLocation
-    }
-  }
-  private def copyFromHdfs(sqlContext: SQLContext, hdfsTemp : String, fileLocation : String): String  = {
-    val hadoopConf = sqlContext.sparkContext.hadoopConfiguration
-    val hdfsPath = new Path(hdfsTemp)
-    val fs = hdfsPath.getFileSystem(hadoopConf)
-    if ("hdfs".equalsIgnoreCase(fs.getScheme)) {
-      fs.copyToLocalFile(new Path(hdfsTemp), new Path(fileLocation))
-      fs.deleteOnExit(new Path(hdfsTemp))
-      return fileLocation
-    } else {
-      return hdfsTemp
-    }
-  }
+
+
 
   private def upload(source: String, target: String, sftpClient: SFTPClient) {
     logger.info("Copying " + source + " to " + target)
@@ -179,37 +155,6 @@ class DefaultSource extends RelationProvider with SchemaRelationProvider with Cr
       new SFTPClient(getValue(pemFileLocation), getValue(pemPassphrase), getValue(username),
         getValue(password), host, sftpPort)
     }
-  }
-
-  /**
-    * Prepare Http client with URL and headers
-    * @param requestHeadersMap
-    * @return
-    */
-  private def getRESTClientWithHeaders( restEndPoint: String, requestHeadersMap: Option[Map[String, String]]): HttpRequest = {
-    var httpRequest: HttpRequest = null
-
-    if(!restEndPoint.isEmpty){
-      httpRequest  = Http(restEndPoint)
-      if(requestHeadersMap.isDefined){
-        //.headers("Content-Type" -> "application/json", "key1" -> "val1")
-        httpRequest = httpRequest.headers(requestHeadersMap.get)
-      }
-     }
-    httpRequest
-  }
-
-  /**
-    * Prepare HttpRequest with body detials
-    * @param httpRequest
-    * @param requestBody
-    * @return
-    */
-  private def putRequestBody( httpRequest: HttpRequest, requestBody: String ): HttpRequest = {
-    if(httpRequest.isInstanceOf[HttpRequest] && !requestBody.isEmpty){
-      return httpRequest.postData(requestBody)
-    }
-    return httpRequest
   }
 
 
@@ -251,6 +196,20 @@ class DefaultSource extends RelationProvider with SchemaRelationProvider with Cr
     }
   }
 
+  /**
+    * Writing to paths using Spark write methods
+    * @param sqlContext
+    * @param df
+    * @param hdfsTemp
+    * @param tempFolder
+    * @param fileType
+    * @param header
+    * @param delimiter
+    * @param codec
+    * @param rowTag
+    * @param rootTag
+    * @return
+    */
   private def writeToTemp(sqlContext: SQLContext, df: DataFrame,
                           hdfsTemp: String, tempFolder: String, fileType: String, header: String,
                           delimiter: String, codec: String, rowTag: String, rootTag: String) : String = {
@@ -287,6 +246,10 @@ class DefaultSource extends RelationProvider with SchemaRelationProvider with Cr
     copiedFile(localTempLocation)
   }
 
+  /**
+    *  Post process/JVM kill, remove the left over files in the filesystems.
+    * @param tempLocation
+    */
   private def addShutdownHook(tempLocation: String) {
     logger.debug("Adding hook for file " + tempLocation)
     val hook = new DeleteTempFileShutdownHook(tempLocation)
@@ -311,4 +274,48 @@ class DefaultSource extends RelationProvider with SchemaRelationProvider with Cr
         && !x.getName.contains(".crc"))}
     files(0).getAbsolutePath
   }
+
+
+  /**
+    * HDFS helper method
+    * @param sqlContext
+    * @param fileLocation
+    * @param hdfsTemp
+    * @return
+    */
+  private def copyToHdfs(sqlContext: SQLContext, fileLocation : String, hdfsTemp : String): String  = {
+    val hadoopConf = sqlContext.sparkContext.hadoopConfiguration
+    val hdfsPath = new Path(fileLocation)
+    val fs = hdfsPath.getFileSystem(hadoopConf)
+    if ("hdfs".equalsIgnoreCase(fs.getScheme)) {
+      fs.copyFromLocalFile(new Path(fileLocation), new Path(hdfsTemp))
+      val filePath = hdfsTemp + "/" + hdfsPath.getName
+      fs.deleteOnExit(new Path(filePath))
+      return filePath
+    } else {
+      return fileLocation
+    }
+  }
+
+  /**
+    * HDFS helper method
+    * @param sqlContext
+    * @param hdfsTemp
+    * @param fileLocation
+    * @return
+    */
+  private def copyFromHdfs(sqlContext: SQLContext, hdfsTemp : String, fileLocation : String): String  = {
+    val hadoopConf = sqlContext.sparkContext.hadoopConfiguration
+    val hdfsPath = new Path(hdfsTemp)
+    val fs = hdfsPath.getFileSystem(hadoopConf)
+    if ("hdfs".equalsIgnoreCase(fs.getScheme)) {
+      fs.copyToLocalFile(new Path(hdfsTemp), new Path(fileLocation))
+      fs.deleteOnExit(new Path(hdfsTemp))
+      return fileLocation
+    } else {
+      return hdfsTemp
+    }
+  }
+
+
 }

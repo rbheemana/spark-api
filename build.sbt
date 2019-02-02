@@ -16,7 +16,9 @@ libraryDependencies ++= Seq(
   "org.mockito" % "mockito-core" % "2.0.31-beta",
   "com.databricks" % "spark-xml_2.11" % "0.4.1",
   //module to consume REST end points.
-  "org.scalaj" %% "scalaj-http" % "2.4.1"
+  "org.scalaj" %% "scalaj-http" % "2.4.1",
+  // https://mvnrepository.com/artifact/com.google.code.gson/gson
+  "com.google.code.gson" % "gson" % "1.7.1"
 )
 
 // used spark components
